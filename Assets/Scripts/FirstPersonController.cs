@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -66,6 +67,8 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float maxAirSpeed;
     [SerializeField] Transform playerTransform;
     [SerializeField] WallRun WallRun;
+    public float speed;
+    private bool canSlide;
 
     private bool OnSlope()
     {
@@ -101,7 +104,8 @@ public class FirstPersonController : MonoBehaviour
     {
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
+        speed = Vector3.Magnitude(rb.velocity);
+        Debug.Log(speed);
 
         MyInput();
         ControlDrag();
@@ -174,6 +178,10 @@ public class FirstPersonController : MonoBehaviour
             if (isCrouching)
             {
                 rb.drag = crouchDrag;
+                if(canSlide)
+                {
+                    rb.drag = slideDrag;
+                }
             }
         }
         else
@@ -196,12 +204,10 @@ public class FirstPersonController : MonoBehaviour
         if (isGrounded && !OnSlope())
         {
             rb.AddForce(moveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
-            Debug.Log("X");
         }
         else if (isGrounded && OnSlope())
         {
             rb.AddForce(slopeMoveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
-            Debug.Log("Y");
         }
     }
 
@@ -211,6 +217,10 @@ public class FirstPersonController : MonoBehaviour
         {
             isCrouching = true;
             capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, rb.transform.localScale.y / 2, rb.transform.localScale.z);
+            if (speed > 5)
+            {
+                canSlide = true;
+            }
         }
 
         else
