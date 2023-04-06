@@ -12,6 +12,7 @@ public class WallRun : MonoBehaviour
     [SerializeField] private float minimumJumpHeight = 1.5f;
 
     [Header("Wall Running")]
+    [SerializeField] private float wallRunAttraction;
     [SerializeField] private float wallRunGravity;
     [SerializeField] private float wallRunJumpForce;
 
@@ -88,6 +89,26 @@ public class WallRun : MonoBehaviour
         {
             StopWallRun();
         }
+
+
+        Debug.Log(leftWallHit.normal);
+        //Wall Attraction
+
+        if (isWallRunning)
+        {
+            Vector3 wallAttractionDirection;
+            if(wallLeft)
+            {
+                wallAttractionDirection = leftWallHit.normal;
+                rb.AddForce(- wallAttractionDirection * wallRunAttraction, ForceMode.Force);
+            }
+            if(wallRight)
+            {
+                wallAttractionDirection = rightWallHit.normal;
+                rb.AddForce(- wallAttractionDirection * wallRunAttraction, ForceMode.Force);
+            }
+        }
+
     }
 
     void StartWallRun()

@@ -2,10 +2,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class FirstPersonController : MonoBehaviour
 {
+    public bool isGrounded { get; private set; }
+    Vector3 moveDirection;
+    Vector3 slopeMoveDirection;
+    public Rigidbody rb;
+    ConstantForce constantForceObject;
+    RaycastHit slopeHit;
+    public bool isCrouching = false;
+    float horizontalMovement;
+    float verticalMovement;
     float playerHeight = 2f;
+
 
     [SerializeField] Transform orientation;
 
@@ -27,6 +38,7 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] KeyCode jumpKey = KeyCode.Space;
     [SerializeField] KeyCode sprintKey = KeyCode.LeftShift;
     [SerializeField] KeyCode crouchKey = KeyCode.C;
+    private Vector2 inputMove;
 
     [Header("Drag")]
     [SerializeField] float groundDrag = 6f;
@@ -35,9 +47,6 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float slideDrag = 0.5f;
     [SerializeField] float wallRunDrag = 4f;
 
-    float horizontalMovement;
-    float verticalMovement;
-
     [Header("Ground Detection")]
     [SerializeField] Transform groundCheck;
     [SerializeField] LayerMask groundMask;
@@ -45,19 +54,6 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Gravity")]
     [SerializeField] float gravity = -10;
-
-
-    public bool isGrounded { get; private set; }
-
-    Vector3 moveDirection;
-    Vector3 slopeMoveDirection;
-
-    public Rigidbody rb;
-    ConstantForce constantForceObject;
-
-    RaycastHit slopeHit;
-
-    public bool isCrouching = false;
 
     [Header("Crouching")]
     [SerializeField] Transform capsuleTransform;
@@ -69,24 +65,8 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float maxAirSpeed;
     [SerializeField] Transform playerTransform;
     [SerializeField] WallRun WallRun;
-    public float speed;
-    private bool canSlide;
-
-    private bool OnSlope()
-    {
-        if (Physics.Raycast(transform.position, Vector3.down, out slopeHit, playerHeight / 2 + 0.5f))
-        {
-            if (slopeHit.normal != Vector3.up)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        return false;
-    }
+    [SerializeField] public float speed;
+    [SerializeField] private bool canSlide;
 
     private void Awake()
     {
@@ -102,12 +82,26 @@ public class FirstPersonController : MonoBehaviour
         rb.freezeRotation = true;
     }
 
+    private void FixedUpdate()
+    {
+        MovePlayer();
+        if (!isGrounded && !WallRun.isWallRunning)
+        {
+            AirMove(wishdir);
+        }
+    }
+
     private void Update()
     {
+        // Get the horizontal and vertical input
+        if (!WallRun.isWallRunning)
+        {
+            horizontalMovement = inputMove.x;
+        }
+        verticalMovement = inputMove.y;
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
         speed = Vector3.Magnitude(rb.velocity);
-        Debug.Log(speed);
 
         if (isGrounded || WallRun.isWallRunning)
         {
@@ -129,14 +123,10 @@ public class FirstPersonController : MonoBehaviour
 
         //Air Strafing
 
-        // Get the horizontal and vertical input
-        float horizontalInput = Input.GetAxis("Horizontal");
-        float verticalInput = Input.GetAxis("Vertical");
-
         // Combine the input with the player's forward direction
         Vector3 forwardDirection = playerTransform.forward;
         Vector3 rightDirection = playerTransform.right;
-        wishdir = (forwardDirection * verticalInput) + (rightDirection * horizontalInput);
+        wishdir = (forwardDirection * verticalMovement) + (rightDirection * horizontalMovement);
 
 
         slopeMoveDirection = Vector3.ProjectOnPlane(moveDirection, slopeHit.normal);
@@ -144,15 +134,23 @@ public class FirstPersonController : MonoBehaviour
 
     void MyInput()
     {
-        if (!WallRun.isWallRunning)
-        {
-            horizontalMovement = Input.GetAxisRaw("Horizontal");
-        }
-        verticalMovement = Input.GetAxisRaw("Vertical");
-
         moveDirection = orientation.forward * verticalMovement + orientation.right * horizontalMovement;
-      
+    }
 
+    private bool OnSlope()
+    {
+        if (Physics.Raycast(transform.position, Vector3.down, out slopeHit, playerHeight / 2 + 0.5f))
+        {
+            if (slopeHit.normal != Vector3.up)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return false;
     }
 
     void Jump()
@@ -188,7 +186,7 @@ public class FirstPersonController : MonoBehaviour
             if (isCrouching)
             {
                 rb.drag = crouchDrag;
-                if(canSlide)
+                if (canSlide)
                 {
                     rb.drag = slideDrag;
                 }
@@ -201,15 +199,6 @@ public class FirstPersonController : MonoBehaviour
         else
         {
             rb.drag = wallRunDrag;
-        }
-    }
-
-    private void FixedUpdate()
-    {
-        MovePlayer();
-        if (!isGrounded && !WallRun.isWallRunning)
-        {
-            AirMove(wishdir);
         }
     }
 
@@ -279,5 +268,10 @@ public class FirstPersonController : MonoBehaviour
             }
 
         }
+    }
+
+    public void OnMove(InputAction.CallbackContext value)
+    {
+        inputMove = value.ReadValue<Vector2>();
     }
 }
