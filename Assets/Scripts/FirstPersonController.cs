@@ -17,6 +17,7 @@ public class FirstPersonController : MonoBehaviour
     [Header("Sprinting")]
     [SerializeField] float walkSpeed = 4f;
     [SerializeField] float sprintSpeed = 6f;
+    [SerializeField] float wallRunSpeed = 2f;
     [SerializeField] float acceleration = 10f;
 
     [Header("Jumping")]
@@ -32,6 +33,7 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float airDrag = 2f;
     [SerializeField] float crouchDrag = 10f;
     [SerializeField] float slideDrag = 0.5f;
+    [SerializeField] float wallRunDrag = 4f;
 
     float horizontalMovement;
     float verticalMovement;
@@ -107,7 +109,10 @@ public class FirstPersonController : MonoBehaviour
         speed = Vector3.Magnitude(rb.velocity);
         Debug.Log(speed);
 
-        MyInput();
+        if (isGrounded || WallRun.isWallRunning)
+        {
+            MyInput();
+        }
         ControlDrag();
         ControlSpeed();
         Crouch();
@@ -139,13 +144,14 @@ public class FirstPersonController : MonoBehaviour
 
     void MyInput()
     {
-        if (isGrounded || WallRun.isWallRunning)
+        if (!WallRun.isWallRunning)
         {
             horizontalMovement = Input.GetAxisRaw("Horizontal");
-            verticalMovement = Input.GetAxisRaw("Vertical");
-
-            moveDirection = orientation.forward * verticalMovement + orientation.right * horizontalMovement;
         }
+        verticalMovement = Input.GetAxisRaw("Vertical");
+
+        moveDirection = orientation.forward * verticalMovement + orientation.right * horizontalMovement;
+      
 
     }
 
@@ -163,6 +169,10 @@ public class FirstPersonController : MonoBehaviour
         if (Input.GetKey(sprintKey) && isGrounded)
         {
             moveSpeed = Mathf.Lerp(moveSpeed, sprintSpeed, acceleration * Time.deltaTime);
+        }
+        else if (WallRun.isWallRunning)
+        {
+            moveSpeed = Mathf.Lerp(moveSpeed, wallRunSpeed, acceleration * Time.deltaTime);
         }
         else
         {
@@ -184,9 +194,13 @@ public class FirstPersonController : MonoBehaviour
                 }
             }
         }
-        else
+        else if (!WallRun.isWallRunning)
         {
             rb.drag = airDrag;
+        }
+        else
+        {
+            rb.drag = wallRunDrag;
         }
     }
 
@@ -208,6 +222,10 @@ public class FirstPersonController : MonoBehaviour
         else if (isGrounded && OnSlope())
         {
             rb.AddForce(slopeMoveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
+        }
+        else if (WallRun.isWallRunning)
+        {
+            rb.AddForce(moveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
         }
     }
 
