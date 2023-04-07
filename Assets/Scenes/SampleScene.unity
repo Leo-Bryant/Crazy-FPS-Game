@@ -700,7 +700,7 @@ MonoBehaviour:
   walkSpeed: 6
   sprintSpeed: 15
   crouchSpeed: 10
-  wallRunSpeed: 2
+  wallRunSpeed: 4
   acceleration: 10
   slopeSpeed: 4
   jumpForce: 13
@@ -731,7 +731,6 @@ MonoBehaviour:
   speed: 0
   canSlide: 0
   raycastDistance: 1
-  downForce: 200
 --- !u!75 &1109040147
 ConstantForce:
   m_ObjectHideFlags: 0
