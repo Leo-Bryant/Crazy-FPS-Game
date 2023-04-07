@@ -16,7 +16,12 @@ public class FirstPersonController : MonoBehaviour
     float horizontalMovement;
     float verticalMovement;
     float playerHeight = 2f;
-
+    public float lerpedValue;
+    public float duration = 3;
+    float timeElapsed = 0;
+    float start;
+    float end;
+    [SerializeField] private float slopeThreshold;
 
     [SerializeField] Transform orientation;
 
@@ -25,11 +30,13 @@ public class FirstPersonController : MonoBehaviour
     //[SerializeField] float airMultiplier = 0.4f;
     float movementMultiplier = 10f;
 
-    [Header("Sprinting")]
+    [Header("Speeds")]
     [SerializeField] float walkSpeed = 4f;
     [SerializeField] float sprintSpeed = 6f;
+    [SerializeField] float crouchSpeed = 10f;
     [SerializeField] float wallRunSpeed = 2f;
     [SerializeField] float acceleration = 10f;
+    [SerializeField] float slopeSpeed = 4f;
 
     [Header("Jumping")]
     public float jumpForce = 5f;
@@ -58,6 +65,9 @@ public class FirstPersonController : MonoBehaviour
     [Header("Crouching")]
     [SerializeField] Transform capsuleTransform;
     [SerializeField] Transform groundCheckTransform;
+    [SerializeField] float slideBoostAmount;
+    [SerializeField] float crouchTransitionTime;
+    [SerializeField] float playerHeightTransformY = 1f;
 
     [Header("Air Strafing")]
     [SerializeField] Vector3 wishdir;
@@ -67,6 +77,12 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] WallRun WallRun;
     [SerializeField] public float speed;
     [SerializeField] private bool canSlide;
+
+    [Header("Slide Boosting")]
+    public float raycastDistance = 1.0f; // The length of the ray cast
+
+
+
 
     private void Awake()
     {
@@ -80,15 +96,25 @@ public class FirstPersonController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
+        start = slideDrag;
+        end = crouchDrag;
+        playerHeightTransformY = capsuleTransform.localScale.y;
     }
 
     private void FixedUpdate()
     {
+
+
+
         MovePlayer();
-        if (!isGrounded && !WallRun.isWallRunning)
+        if (!isGrounded && !WallRun.isWallRunning && !OnSlope())
         {
             AirMove(wishdir);
         }
+
+        //Slide Boosting
+
+
     }
 
     private void Update()
@@ -98,15 +124,21 @@ public class FirstPersonController : MonoBehaviour
         {
             horizontalMovement = inputMove.x;
         }
+        else 
+        {
+            horizontalMovement = 0f;
+        }
         verticalMovement = inputMove.y;
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
         speed = Vector3.Magnitude(rb.velocity);
 
-        if (isGrounded || WallRun.isWallRunning)
+        if (isGrounded || WallRun.isWallRunning || OnSlope())
         {
             MyInput();
         }
+
+
         ControlDrag();
         ControlSpeed();
         Crouch();
@@ -164,7 +196,7 @@ public class FirstPersonController : MonoBehaviour
 
     void ControlSpeed()
     {
-        if (Input.GetKey(sprintKey) && isGrounded)
+        if (Input.GetKey(sprintKey) && isGrounded && !isCrouching)
         {
             moveSpeed = Mathf.Lerp(moveSpeed, sprintSpeed, acceleration * Time.deltaTime);
         }
@@ -172,45 +204,70 @@ public class FirstPersonController : MonoBehaviour
         {
             moveSpeed = Mathf.Lerp(moveSpeed, wallRunSpeed, acceleration * Time.deltaTime);
         }
+        else if (isCrouching && isGrounded)
+        {
+            moveSpeed = 0f;
+            if (lerpedValue >= 1f)
+            {
+                moveSpeed = crouchSpeed;
+            }
+        }
         else
         {
             moveSpeed = Mathf.Lerp(moveSpeed, walkSpeed, acceleration * Time.deltaTime);
         }
     }
 
+ 
     void ControlDrag()
     {
-        if (isGrounded)
+        if (isGrounded && isCrouching)
         {
-            rb.drag = groundDrag;
-            if (isCrouching)
+            if (timeElapsed < duration)
             {
-                rb.drag = crouchDrag;
-                if (canSlide)
-                {
-                    rb.drag = slideDrag;
-                }
+                float t = Mathf.SmoothStep(0f, 1f, timeElapsed / duration);
+                t = Mathf.Pow(t, 20f); // Raise t to the power of 2
+                lerpedValue = Mathf.Lerp(start, end, t);
+                timeElapsed += Time.deltaTime;
             }
-        }
-        else if (!WallRun.isWallRunning)
-        {
-            rb.drag = airDrag;
+            else if (!Input.GetKey(jumpKey))
+            {
+                lerpedValue = end;
+            }
+            rb.drag = lerpedValue;
         }
         else
         {
+            timeElapsed = 0;
+        }
+ 
+
+        if ((isGrounded || OnSlope()) && !isCrouching)
+        {
+            rb.drag = groundDrag;
+        }
+        else if (WallRun.isWallRunning)
+        {
             rb.drag = wallRunDrag;
+        }
+        else if (!isCrouching)
+        {
+            rb.drag = airDrag;
         }
     }
 
+
+
     void MovePlayer()
     {
-        if (isGrounded && !OnSlope())
+        if (isGrounded)
         {
             rb.AddForce(moveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
         }
-        else if (isGrounded && OnSlope())
+        else if (OnSlope())
         {
             rb.AddForce(slopeMoveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
+
         }
         else if (WallRun.isWallRunning)
         {
@@ -223,17 +280,32 @@ public class FirstPersonController : MonoBehaviour
         if (Input.GetKey(crouchKey))
         {
             isCrouching = true;
-            capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, rb.transform.localScale.y / 2, rb.transform.localScale.z);
-            if (speed > 5)
-            {
-                canSlide = true;
-            }
+            float currentScaleY = capsuleTransform.transform.localScale.y;
+            float targetScaleY = rb.transform.localScale.y / 2;
+            float smoothVelocity = 0.0f;
+
+            // Use Mathf.SmoothDamp to smoothly transition the scale of the object.
+            float newScaleY = Mathf.SmoothDamp(currentScaleY, targetScaleY, ref smoothVelocity, crouchTransitionTime);
+
+            // Set the new scale of the object.
+            capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, newScaleY, rb.transform.localScale.z);
         }
+
 
         else
         {
+            float currentScaleY = capsuleTransform.transform.localScale.y;
+            float smoothVelocity = 0.0f;
+
+            // Use Mathf.SmoothDamp to smoothly transition the scale of the object.
+            float newScaleY = Mathf.SmoothDamp(currentScaleY, playerHeightTransformY, ref smoothVelocity, crouchTransitionTime);
+
+            // Set the new scale of the object.
+            capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, newScaleY, rb.transform.localScale.z);
+
             isCrouching = false;
-            capsuleTransform.transform.localScale = new Vector3(1, 1, 1);
+
+
         }
     }
 
@@ -269,6 +341,29 @@ public class FirstPersonController : MonoBehaviour
 
         }
     }
+
+
+    private bool canAddForce = true; // Flag to check if force can be added
+    private float timeBetweenForce = .2f; // Time between each force
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (isCrouching && canAddForce)
+        {
+            Debug.Log("boosted");
+            Vector3 velocity = rb.velocity;
+            rb.AddForce(velocity.normalized * slideBoostAmount, ForceMode.Impulse);
+            canAddForce = false; // Disable force adding
+            StartCoroutine(EnableForceAdding()); // Start coroutine to enable force adding after timeBetweenForce seconds
+        }
+    }
+
+    private IEnumerator EnableForceAdding()
+    {
+        yield return new WaitForSeconds(timeBetweenForce); // Wait for timeBetweenForce seconds
+        canAddForce = true; // Enable force adding
+    }
+
 
     public void OnMove(InputAction.CallbackContext value)
     {

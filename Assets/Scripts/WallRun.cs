@@ -13,8 +13,11 @@ public class WallRun : MonoBehaviour
 
     [Header("Wall Running")]
     [SerializeField] private float wallRunAttraction;
+    [SerializeField] private float maxWallAttractionForce;
+    [SerializeField] private float minWallAttractionForce;
     [SerializeField] private float wallRunGravity;
     [SerializeField] private float wallRunJumpForce;
+    [SerializeField] private float initialWallAttraction;
 
     [Header("Camera")]
     [SerializeField] private Camera cam;
@@ -90,22 +93,29 @@ public class WallRun : MonoBehaviour
             StopWallRun();
         }
 
-
-        Debug.Log(leftWallHit.normal);
         //Wall Attraction
 
         if (isWallRunning)
         {
-            Vector3 wallAttractionDirection;
-            if(wallLeft)
+            if (wallLeft)
             {
+                Vector3 wallAttractionDirection;
+                float distanceToWall = leftWallHit.distance;
+                float normalizedDistance = Mathf.Clamp01(distanceToWall / wallDistance);
+                wallRunAttraction = Mathf.Lerp(minWallAttractionForce, maxWallAttractionForce, normalizedDistance);
+
                 wallAttractionDirection = leftWallHit.normal;
-                rb.AddForce(- wallAttractionDirection * wallRunAttraction, ForceMode.Force);
+                rb.AddForce(-wallAttractionDirection * wallRunAttraction, ForceMode.Force);
             }
-            if(wallRight)
+            if (wallRight)
             {
+                Vector3 wallAttractionDirection;
+                float distanceToWall = rightWallHit.distance;
+                float normalizedDistance = Mathf.Clamp01(distanceToWall / wallDistance);
+                wallRunAttraction = Mathf.Lerp(minWallAttractionForce, maxWallAttractionForce, normalizedDistance);
+
                 wallAttractionDirection = rightWallHit.normal;
-                rb.AddForce(- wallAttractionDirection * wallRunAttraction, ForceMode.Force);
+                rb.AddForce(-wallAttractionDirection * wallRunAttraction, ForceMode.Force);
             }
         }
 
@@ -113,6 +123,8 @@ public class WallRun : MonoBehaviour
 
     void StartWallRun()
     {
+
+
         isWallRunning = true;
         constantForceObject.relativeForce = new Vector3(0, 0, 0);
 
@@ -152,3 +164,4 @@ public class WallRun : MonoBehaviour
         tilt = Mathf.Lerp(tilt, 0, camTiltTime * Time.deltaTime);
     }
 }
+

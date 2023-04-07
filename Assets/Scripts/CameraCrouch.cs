@@ -7,7 +7,6 @@ public class CameraCrouch : MonoBehaviour
     [SerializeField] FirstPersonController fpsController;
     [SerializeField] Transform playerPosition;
 
-    bool crouchCheck;
 
     private void Start()
     {
@@ -15,13 +14,13 @@ public class CameraCrouch : MonoBehaviour
 
     private void Update()
     {
-        if (!fpsController.isCrouching)
+        if (fpsController.isCrouching)
         {
-            transform.position = playerPosition.transform.position + new Vector3(0, 1f, 0);
+            transform.position = playerPosition.transform.position + new Vector3(0, .5f, 0);
         }
         else
         {
-            transform.position = playerPosition.transform.position + new Vector3(0, .5f, 0);
+            transform.position = playerPosition.transform.position + new Vector3(0, 1, 0);
         }
     }
 
