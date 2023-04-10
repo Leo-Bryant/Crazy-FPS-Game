@@ -13,7 +13,7 @@ public class FirstPersonController : MonoBehaviour
     ConstantForce constantForceObject;
     RaycastHit slopeHit;
     public bool isCrouching = false;
-    float horizontalMovement;
+    public float horizontalMovement;
     float verticalMovement;
     float playerHeight = 2f;
     public float lerpedValue;
@@ -21,6 +21,12 @@ public class FirstPersonController : MonoBehaviour
     float timeElapsed = 0;
     float start;
     float end;
+    private bool canAddForce = true; // Flag to check if force can be added
+    [SerializeField] float timeBetweenForce = .2f; // Time between each force
+    [SerializeField] LayerMask playerMask;
+    [SerializeField] PhysicMaterial playerMaterial;
+
+
     [SerializeField] private float slopeThreshold;
 
     [SerializeField] Transform orientation;
@@ -36,15 +42,16 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float crouchSpeed = 10f;
     [SerializeField] float wallRunSpeed = 2f;
     [SerializeField] float acceleration = 10f;
-    [SerializeField] float slopeSpeed = 4f;
 
     [Header("Jumping")]
     public float jumpForce = 5f;
+    [SerializeField] float extraJumps = 2;
+    private float currentJumps = 0;
 
     [Header("Keybinds")]
     [SerializeField] KeyCode jumpKey = KeyCode.Space;
     [SerializeField] KeyCode sprintKey = KeyCode.LeftShift;
-    [SerializeField] KeyCode crouchKey = KeyCode.C;
+    [SerializeField] public KeyCode crouchKey = KeyCode.C;
     private Vector2 inputMove;
 
     [Header("Drag")]
@@ -68,6 +75,13 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float slideBoostAmount;
     [SerializeField] float crouchTransitionTime;
     [SerializeField] float playerHeightTransformY = 1f;
+    [SerializeField] float downwardForce = 100f;
+    [SerializeField] CapsuleCollider capsuleCollider;
+    [SerializeField] float crouchColliderHeight;
+    [SerializeField] private float crouchColliderCenterYOffset;
+    float originalColliderHeight;
+    bool canMoveWhileCrouching = false;
+
 
     [Header("Air Strafing")]
     [SerializeField] Vector3 wishdir;
@@ -80,6 +94,8 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Slide Boosting")]
     public float raycastDistance = 1.0f; // The length of the ray cast
+    [SerializeField] float slideDuration = 1f; // set the slide duration time here
+    [SerializeField]
 
 
 
@@ -99,35 +115,43 @@ public class FirstPersonController : MonoBehaviour
         start = slideDrag;
         end = crouchDrag;
         playerHeightTransformY = capsuleTransform.localScale.y;
+
+        // initalWallRunAttractionForce = WallRun.maxWallAttractionForce;
+        originalColliderHeight = capsuleCollider.height;
     }
 
     private void FixedUpdate()
     {
-
-
-
         MovePlayer();
         if (!isGrounded && !WallRun.isWallRunning && !OnSlope())
         {
             AirMove(wishdir);
         }
 
-        //Slide Boosting
-
-
     }
 
     private void Update()
     {
+
+
         // Get the horizontal and vertical input
         if (!WallRun.isWallRunning)
         {
             horizontalMovement = inputMove.x;
         }
-        else 
+        else
         {
             horizontalMovement = 0f;
         }
+
+        if (isCrouching && (WallRun.wallLeft || WallRun.wallRight))
+        {
+        }
+        else
+        {
+        }
+
+
         verticalMovement = inputMove.y;
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
@@ -143,14 +167,20 @@ public class FirstPersonController : MonoBehaviour
         ControlSpeed();
         Crouch();
 
-        if (Input.GetKeyDown(jumpKey) && isGrounded)
+        // DOUBLE JUMPING //
+
+        if (isGrounded || OnSlope() || WallRun.isWallRunning)
         {
-            Jump();
+            currentJumps = extraJumps;
         }
 
-        if (Input.GetKeyDown(crouchKey))
+        if (Input.GetKeyDown(jumpKey) && currentJumps > 0 && !WallRun.isWallRunning)
         {
-            Crouch();
+            Jump();
+            if (currentJumps > 0)
+            {
+                currentJumps -= 1;
+            }
         }
 
         //Air Strafing
@@ -171,88 +201,96 @@ public class FirstPersonController : MonoBehaviour
 
     private bool OnSlope()
     {
-        if (Physics.Raycast(transform.position, Vector3.down, out slopeHit, playerHeight / 2 + 0.5f))
+        float rayDistance = 1.1f;
+        int layerMask = ~LayerMask.GetMask("Player"); // exclude the "Player" layer from the raycast
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, rayDistance, layerMask))
         {
-            if (slopeHit.normal != Vector3.up)
+            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+            if (slopeAngle > 0 && slopeAngle <= 45)
             {
+                Debug.DrawRay(transform.position, Vector3.down * rayDistance, Color.green);
                 return true;
             }
-            else
-            {
-                return false;
-            }
         }
+        Debug.DrawRay(transform.position, Vector3.down * rayDistance, Color.red);
         return false;
     }
 
     void Jump()
     {
-        if (isGrounded)
-        {
-            rb.velocity = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-            rb.AddForce(transform.up * Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y), ForceMode.Impulse);
-        }
+        rb.velocity = new Vector3(rb.velocity.x, 0, rb.velocity.z);
+        rb.AddForce(transform.up * Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y), ForceMode.Impulse);
     }
 
     void ControlSpeed()
     {
-        if (Input.GetKey(sprintKey) && isGrounded && !isCrouching)
+        if (Input.GetKey(sprintKey) && (isGrounded || OnSlope()) && !isCrouching)
         {
-            moveSpeed = Mathf.Lerp(moveSpeed, sprintSpeed, acceleration * Time.deltaTime);
+            moveSpeed = sprintSpeed;
+
+            //moveSpeed = Mathf.Lerp(moveSpeed, sprintSpeed, acceleration * Time.deltaTime);
         }
         else if (WallRun.isWallRunning)
         {
-            moveSpeed = Mathf.Lerp(moveSpeed, wallRunSpeed, acceleration * Time.deltaTime);
+            moveSpeed = wallRunSpeed;
+            
+            //moveSpeed = Mathf.Lerp(moveSpeed, wallRunSpeed, acceleration * Time.deltaTime);
         }
-        else if (isCrouching && isGrounded)
+        else if (isCrouching && (isGrounded || OnSlope()))
         {
             moveSpeed = 0f;
-            if (lerpedValue >= 1f)
+            if (canMoveWhileCrouching)
             {
                 moveSpeed = crouchSpeed;
             }
         }
         else
         {
-            moveSpeed = Mathf.Lerp(moveSpeed, walkSpeed, acceleration * Time.deltaTime);
+            moveSpeed = walkSpeed;
+
+            //moveSpeed = Mathf.Lerp(moveSpeed, walkSpeed, acceleration * Time.deltaTime);
         }
     }
 
- 
+    float slideTimer = 0f; // initialize the slide timer
+    float currentVelocity;
+
     void ControlDrag()
     {
-        if (isGrounded && isCrouching)
-        {
-            if (timeElapsed < duration)
-            {
-                float t = Mathf.SmoothStep(0f, 1f, timeElapsed / duration);
-                t = Mathf.Pow(t, 20f); // Raise t to the power of 2
-                lerpedValue = Mathf.Lerp(start, end, t);
-                timeElapsed += Time.deltaTime;
-            }
-            else if (!Input.GetKey(jumpKey))
-            {
-                lerpedValue = end;
-            }
-            rb.drag = lerpedValue;
-        }
-        else
-        {
-            timeElapsed = 0;
-        }
- 
-
         if ((isGrounded || OnSlope()) && !isCrouching)
         {
             rb.drag = groundDrag;
+        }
+        else if ((isGrounded || OnSlope()) && isCrouching)
+        {
+            if (slideTimer < slideDuration) // check if slide duration has not elapsed yet
+            {
+                canMoveWhileCrouching = false;
+                rb.drag = slideDrag;
+                slideTimer += Time.deltaTime; // update slide timer
+            }
+            else
+            {
+                rb.drag = Mathf.SmoothDamp(rb.drag, crouchDrag, ref currentVelocity, .05f);  // set drag to crouchDrag after slide duration has elapsed
+                if (rb.drag >= crouchDrag -0.1)
+                {
+                    canMoveWhileCrouching = true;
+                }
+            }
         }
         else if (WallRun.isWallRunning)
         {
             rb.drag = wallRunDrag;
         }
-        else if (!isCrouching)
+        else if (!isGrounded && !WallRun.isWallRunning)
         {
             rb.drag = airDrag;
+        }
+
+        if (!isCrouching || (!isGrounded && !OnSlope())) // reset slide timer if player stops crouching
+        {
+            slideTimer = 0f;
         }
     }
 
@@ -275,10 +313,28 @@ public class FirstPersonController : MonoBehaviour
         }
     }
 
+
+    bool hasReceivedDownwardForce = false;
+    bool hasCrouchButtonDown = false;
+
     void Crouch()
     {
+        if (Input.GetKeyDown(crouchKey) && (isGrounded || OnSlope()))
+        {
+            AddForce();
+        }
         if (Input.GetKey(crouchKey))
         {
+
+            if (!isCrouching)
+            {
+                // Move the collider and transform downwards to keep the player's feet on the ground
+                float deltaHeight = (originalColliderHeight - crouchColliderHeight) / 2;
+                capsuleCollider.center = new Vector3(0, crouchColliderCenterYOffset, 0);
+                capsuleCollider.height = crouchColliderHeight;
+                capsuleTransform.transform.position -= new Vector3(0, deltaHeight, 0);
+            }
+
             isCrouching = true;
             float currentScaleY = capsuleTransform.transform.localScale.y;
             float targetScaleY = rb.transform.localScale.y / 2;
@@ -290,10 +346,17 @@ public class FirstPersonController : MonoBehaviour
             // Set the new scale of the object.
             capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, newScaleY, rb.transform.localScale.z);
         }
-
-
         else
         {
+            if (isCrouching)
+            {
+                // Move the collider and transform back to their original positions
+                float deltaHeight = (originalColliderHeight - crouchColliderHeight) / 2;
+                capsuleCollider.center = Vector3.zero;
+                capsuleCollider.height = originalColliderHeight;
+                capsuleTransform.transform.position += new Vector3(0, deltaHeight, 0);
+            }
+
             float currentScaleY = capsuleTransform.transform.localScale.y;
             float smoothVelocity = 0.0f;
 
@@ -304,8 +367,6 @@ public class FirstPersonController : MonoBehaviour
             capsuleTransform.transform.localScale = new Vector3(rb.transform.localScale.x, newScaleY, rb.transform.localScale.z);
 
             isCrouching = false;
-
-
         }
     }
 
@@ -343,25 +404,22 @@ public class FirstPersonController : MonoBehaviour
     }
 
 
-    private bool canAddForce = true; // Flag to check if force can be added
-    private float timeBetweenForce = .2f; // Time between each force
+
+    bool hasBoosted = false;
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (isCrouching && canAddForce)
+        if (isCrouching && canAddForce && hasBoosted == false && (isGrounded || OnSlope()))
         {
-            Debug.Log("boosted");
-            Vector3 velocity = rb.velocity;
-            rb.AddForce(velocity.normalized * slideBoostAmount, ForceMode.Impulse);
-            canAddForce = false; // Disable force adding
-            StartCoroutine(EnableForceAdding()); // Start coroutine to enable force adding after timeBetweenForce seconds
+            AddForce();
         }
     }
 
-    private IEnumerator EnableForceAdding()
+    void AddForce()
     {
-        yield return new WaitForSeconds(timeBetweenForce); // Wait for timeBetweenForce seconds
-        canAddForce = true; // Enable force adding
+        Vector3 velocity = rb.velocity;
+        rb.AddForce(velocity.normalized * slideBoostAmount, ForceMode.Impulse);
+        hasBoosted = false; // Disable force adding
     }
 
 

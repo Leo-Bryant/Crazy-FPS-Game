@@ -19,7 +19,7 @@ public class GroundCheckCrouching : MonoBehaviour
         }
         else
         {
-            transform.position = playerPosition.transform.position - new Vector3(0, .5f, 0);
+            transform.position = playerPosition.transform.position - new Vector3(0, 1f, 0);
         }
     }
 }

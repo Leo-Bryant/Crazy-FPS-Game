@@ -5,22 +5,25 @@ using UnityEngine;
 public class CameraCrouch : MonoBehaviour
 {
     [SerializeField] FirstPersonController fpsController;
-    [SerializeField] Transform playerPosition;
 
+    private float currentY;
+    private float currentVelocity;
 
     private void Start()
     {
     }
 
+
     private void Update()
     {
+        currentY = transform.localPosition.y;
         if (fpsController.isCrouching)
         {
-            transform.position = playerPosition.transform.position + new Vector3(0, .5f, 0);
+            transform.localPosition = new Vector3(0, Mathf.SmoothDamp(currentY, -.7f, ref currentVelocity, 0.05f), 0);
         }
         else
         {
-            transform.position = playerPosition.transform.position + new Vector3(0, 1, 0);
+            transform.localPosition = new Vector3(0, Mathf.SmoothDamp(currentY, 0f, ref currentVelocity, 0.05f), 0);
         }
     }
 

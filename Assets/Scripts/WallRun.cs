@@ -12,8 +12,9 @@ public class WallRun : MonoBehaviour
     [SerializeField] private float minimumJumpHeight = 1.5f;
 
     [Header("Wall Running")]
+    [SerializeField] public float wallRunBopForce;
     [SerializeField] private float wallRunAttraction;
-    [SerializeField] private float maxWallAttractionForce;
+    [SerializeField] public float maxWallAttractionForce;
     [SerializeField] private float minWallAttractionForce;
     [SerializeField] private float wallRunGravity;
     [SerializeField] private float wallRunJumpForce;
@@ -31,8 +32,8 @@ public class WallRun : MonoBehaviour
 
     public float tilt { get; private set; }
 
-    private bool wallLeft = false;
-    private bool wallRight = false;
+    public bool wallLeft = false;
+    public bool wallRight = false;
 
     RaycastHit leftWallHit;
     RaycastHit rightWallHit;
@@ -43,7 +44,7 @@ public class WallRun : MonoBehaviour
     ConstantForce constantForceObject;
     float gravityForce;
 
-    bool CanWallRun()
+    public bool CanWallRun()
     {
         return !Physics.Raycast(transform.position, Vector3.down, minimumJumpHeight);
     }
@@ -60,6 +61,8 @@ public class WallRun : MonoBehaviour
 
     void CheckWall()
     {
+        //FirstPersonController.
+
         int layerMask = ~(1 << LayerMask.NameToLayer("Player"));
         wallLeft = Physics.Raycast(transform.position, -orientation.right, out leftWallHit, wallDistance, layerMask);
         wallRight = Physics.Raycast(transform.position, orientation.right, out rightWallHit, wallDistance, layerMask);
@@ -67,6 +70,8 @@ public class WallRun : MonoBehaviour
 
     private void Update()
     {
+
+
         CheckWall();
 
         if (CanWallRun())
@@ -155,7 +160,8 @@ public class WallRun : MonoBehaviour
         }
     }
 
-    void StopWallRun()
+
+    public void StopWallRun()
     {
         isWallRunning = false;
         constantForceObject.relativeForce = new Vector3(0, gravityForce, 0);
