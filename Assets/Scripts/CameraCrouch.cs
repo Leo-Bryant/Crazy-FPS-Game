@@ -19,7 +19,7 @@ public class CameraCrouch : MonoBehaviour
         currentY = transform.localPosition.y;
         if (fpsController.isCrouching)
         {
-            transform.localPosition = new Vector3(0, Mathf.SmoothDamp(currentY, -.7f, ref currentVelocity, 0.05f), 0);
+            transform.localPosition = new Vector3(0, Mathf.SmoothDamp(currentY, -1f, ref currentVelocity, 0.05f), 0);
         }
         else
         {

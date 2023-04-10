@@ -15,14 +15,11 @@ public class FirstPersonController : MonoBehaviour
     public bool isCrouching = false;
     public float horizontalMovement;
     float verticalMovement;
-    float playerHeight = 2f;
     public float lerpedValue;
     public float duration = 3;
-    float timeElapsed = 0;
     float start;
     float end;
     private bool canAddForce = true; // Flag to check if force can be added
-    [SerializeField] float timeBetweenForce = .2f; // Time between each force
     [SerializeField] LayerMask playerMask;
     [SerializeField] PhysicMaterial playerMaterial;
 
@@ -41,7 +38,6 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float sprintSpeed = 6f;
     [SerializeField] float crouchSpeed = 10f;
     [SerializeField] float wallRunSpeed = 2f;
-    [SerializeField] float acceleration = 10f;
 
     [Header("Jumping")]
     public float jumpForce = 5f;
@@ -75,7 +71,6 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] float slideBoostAmount;
     [SerializeField] float crouchTransitionTime;
     [SerializeField] float playerHeightTransformY = 1f;
-    [SerializeField] float downwardForce = 100f;
     [SerializeField] CapsuleCollider capsuleCollider;
     [SerializeField] float crouchColliderHeight;
     [SerializeField] private float crouchColliderCenterYOffset;
@@ -312,10 +307,6 @@ public class FirstPersonController : MonoBehaviour
             rb.AddForce(moveDirection.normalized * moveSpeed * movementMultiplier, ForceMode.Acceleration);
         }
     }
-
-
-    bool hasReceivedDownwardForce = false;
-    bool hasCrouchButtonDown = false;
 
     void Crouch()
     {
