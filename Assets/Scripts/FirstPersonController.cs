@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class FirstPersonController : MonoBehaviour
 {
@@ -48,7 +47,6 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] KeyCode jumpKey = KeyCode.Space;
     [SerializeField] KeyCode sprintKey = KeyCode.LeftShift;
     [SerializeField] public KeyCode crouchKey = KeyCode.C;
-    private Vector2 inputMove;
 
     [Header("Drag")]
     [SerializeField] float groundDrag = 6f;
@@ -132,7 +130,7 @@ public class FirstPersonController : MonoBehaviour
         // Get the horizontal and vertical input
         if (!WallRun.isWallRunning)
         {
-            horizontalMovement = inputMove.x;
+            horizontalMovement = Input.GetAxisRaw("Horizontal");
         }
         else
         {
@@ -147,7 +145,8 @@ public class FirstPersonController : MonoBehaviour
         }
 
 
-        verticalMovement = inputMove.y;
+        verticalMovement = verticalMovement = Input.GetAxisRaw("Vertical");
+
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
         speed = Vector3.Magnitude(rb.velocity);
@@ -413,9 +412,4 @@ public class FirstPersonController : MonoBehaviour
         hasBoosted = false; // Disable force adding
     }
 
-
-    public void OnMove(InputAction.CallbackContext value)
-    {
-        inputMove = value.ReadValue<Vector2>();
-    }
 }
