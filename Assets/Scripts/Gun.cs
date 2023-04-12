@@ -5,10 +5,10 @@ using UnityEngine;
 
 public class Gun : MonoBehaviour
 {
-    [Header("References")]
-    [SerializeField] GunData gunData;
-    [SerializeField] Transform muzzle;
 
+    [Header("References")]
+    [SerializeField] private GunData gunData;
+    [SerializeField] private Transform cam;
 
     float timeSinceLastShot;
 
@@ -18,12 +18,16 @@ public class Gun : MonoBehaviour
         PlayerShoot.reloadInput += StartReload;
     }
 
-    public void StartReload() {
+    private void OnDisable() => gunData.reloading = false;
+
+    public void StartReload()
+    {
         if (!gunData.reloading && this.gameObject.activeSelf)
             StartCoroutine(Reload());
     }
 
-    private IEnumerator Reload() {
+    private IEnumerator Reload()
+    {
         gunData.reloading = true;
 
         yield return new WaitForSeconds(gunData.reloadTime);
@@ -35,15 +39,16 @@ public class Gun : MonoBehaviour
 
     private bool CanShoot() => !gunData.reloading && timeSinceLastShot > 1f / (gunData.fireRate / 60f);
 
-    public void Shoot()
+    private void Shoot()
     {
         if (gunData.currentAmmo > 0)
         {
             if (CanShoot())
             {
-                if (Physics.Raycast(transform.position, transform.forward, out RaycastHit hitInfo, gunData.maxDistance))
+                if (Physics.Raycast(cam.position, cam.forward, out RaycastHit hitInfo, gunData.maxDistance))
                 {
-                    Debug.Log(hitInfo.transform.name);
+                    IDamageable damageable = hitInfo.transform.GetComponent<IDamageable>();
+                    damageable?.TakeDamage(gunData.damage);
                 }
 
                 gunData.currentAmmo--;
@@ -57,16 +62,14 @@ public class Gun : MonoBehaviour
     {
         timeSinceLastShot += Time.deltaTime;
 
-        Debug.DrawLine(muzzle.position, muzzle.forward);
+        Debug.DrawRay(cam.position, cam.forward * gunData.maxDistance);
     }
 
-    void OnGunShot()
-    {
-
-    }
     private void OnDestroy()
     {
         PlayerShoot.shootInput -= Shoot;
-        PlayerShoot.reloadInput -= Shoot;
+        PlayerShoot.reloadInput -= StartReload;
     }
+
+    private void OnGunShot() { }
 }
